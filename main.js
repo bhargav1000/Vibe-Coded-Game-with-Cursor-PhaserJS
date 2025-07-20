@@ -8,6 +8,8 @@ class PlayScene extends Phaser.Scene {
         this.load.spritesheet('idle', 'Idle.png', { frameWidth: 128, frameHeight: 128 });
         this.load.spritesheet('walk', 'Walk.png', { frameWidth: 128, frameHeight: 128 });
         this.load.spritesheet('run', 'Run.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('melee', 'Melee.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('rolling', 'Rolling.png', { frameWidth: 128, frameHeight: 128 });
     }
 
     create() {
@@ -18,8 +20,11 @@ class PlayScene extends Phaser.Scene {
         // --- Input & Properties ---
         this.keys = this.input.keyboard.createCursorKeys();
         this.keys.space = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.keys.m = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
+        this.keys.r = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
         this.walkSpeed = 200;
         this.runSpeed = 350;
+        this.rollSpeed = 400;
         this.facing = 's'; // Default facing direction
 
         // --- Animations ---
@@ -50,7 +55,27 @@ class PlayScene extends Phaser.Scene {
                 frameRate: 20,
                 repeat: -1
             });
+
+            this.anims.create({
+                key: `melee-${direction}`,
+                frames: this.anims.generateFrameNumbers('melee', { start: startFrame, end: startFrame + 14 }),
+                frameRate: 20,
+                repeat: 0
+            });
+
+            this.anims.create({
+                key: `rolling-${direction}`,
+                frames: this.anims.generateFrameNumbers('rolling', { start: startFrame, end: startFrame + 14 }),
+                frameRate: 24,
+                repeat: 0
+            });
         });
+
+        this.hero.on('animationcomplete', (animation) => {
+            if (animation.key.startsWith('melee-') || animation.key.startsWith('rolling-')) {
+                this.hero.anims.play(`idle-${this.facing}`, true);
+            }
+        }, this);
 
         // --- Camera ---
         this.cameras.main.startFollow(this.hero);
@@ -58,7 +83,42 @@ class PlayScene extends Phaser.Scene {
     }
 
     update() {
-        const { left, right, up, down, space } = this.keys;
+        const { left, right, up, down, space, m, r } = this.keys;
+
+        const currentAnim = this.hero.anims.currentAnim;
+        const isActionInProgress = currentAnim && (currentAnim.key.startsWith('melee-') || currentAnim.key.startsWith('rolling-')) && this.hero.anims.isPlaying;
+
+        if (isActionInProgress) {
+            if (currentAnim.key.startsWith('melee-')) {
+                this.hero.body.setVelocity(0, 0);
+            } else if (currentAnim.key.startsWith('rolling-')) {
+                const rollVelocity = new Phaser.Math.Vector2();
+                switch (this.facing) {
+                    case 'n': rollVelocity.y = -1; break;
+                    case 's': rollVelocity.y = 1; break;
+                    case 'w': rollVelocity.x = -1; break;
+                    case 'e': rollVelocity.x = 1; break;
+                    case 'nw': rollVelocity.set(-1, -1); break;
+                    case 'ne': rollVelocity.set(1, -1); break;
+                    case 'sw': rollVelocity.set(-1, 1); break;
+                    case 'se': rollVelocity.set(1, 1); break;
+                }
+                rollVelocity.normalize().scale(this.rollSpeed);
+                this.hero.body.setVelocity(rollVelocity.x, rollVelocity.y);
+            }
+            return;
+        }
+
+        if (Phaser.Input.Keyboard.JustDown(m)) {
+            this.hero.anims.play(`melee-${this.facing}`, true);
+            return;
+        }
+
+        if (Phaser.Input.Keyboard.JustDown(r)) {
+            this.hero.anims.play(`rolling-${this.facing}`, true);
+            return;
+        }
+
         const velocity = new Phaser.Math.Vector2();
 
         // --- Determine direction from key presses ---
@@ -86,7 +146,6 @@ class PlayScene extends Phaser.Scene {
         // --- Play animations ---
         if (velocity.length() > 0) {
             this.facing = direction;
-            console.log(`Playing animation for direction: ${this.facing}`); // Log final direction
 
             const currentSpeed = space.isDown ? this.runSpeed : this.walkSpeed;
             velocity.normalize().scale(currentSpeed);
