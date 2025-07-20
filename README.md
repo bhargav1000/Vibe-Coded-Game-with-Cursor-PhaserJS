@@ -44,3 +44,5 @@ If you have Python installed, you can use its built-in simple HTTP server.
 *   **Arrow Keys**: Move the character.
 *   **Diagonal Movement**: Press two arrow keys at once (e.g., Up + Left).
 *   **Run**: Hold down the **Space Bar** while moving. 
+
+Additional controls to be added.
