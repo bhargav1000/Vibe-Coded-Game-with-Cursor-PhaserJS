@@ -5,6 +5,7 @@ class PlayScene extends Phaser.Scene {
 
     preload() {
         // Load all assets with the correct, visually confirmed 128x128 frame size.
+        this.load.image('boss_arena', 'map_assets/boss_arena.png');
         this.load.spritesheet('idle', 'Idle.png', { frameWidth: 128, frameHeight: 128 });
         this.load.spritesheet('walk', 'Walk.png', { frameWidth: 128, frameHeight: 128 });
         this.load.spritesheet('run', 'Run.png', { frameWidth: 128, frameHeight: 128 });
@@ -13,9 +14,56 @@ class PlayScene extends Phaser.Scene {
     }
 
     create() {
+        // --- Map ---
+        const map = this.add.image(0, 0, 'boss_arena').setOrigin(0);
+        this.physics.world.setBounds(0, 0, map.width, map.height);
+
         // --- Hero with Physics ---
-        this.hero = this.physics.add.sprite(this.sys.game.config.width / 2, this.sys.game.config.height / 2, 'idle', 0);
+        this.hero = this.physics.add.sprite(map.width / 2, map.height / 2, 'idle', 0);
         this.hero.body.setSize(32, 32, true);
+
+        // --- Collisions ---
+        const rects = [
+            { x: 135, y: 120, w: 1012, h: 5, label: 'arena_top' },
+            { x: 105, y: 634, w: 1012, h: 5, label: 'arena_bottom' },
+            { x: 135, y: 120, w: 5, h: 528, label: 'arena_left' },
+            { x: 1068, y: 120, w: 5, h: 528, label: 'arena_right' }
+        ];
+        if (this.obstacles) this.obstacles.clear(true, true);
+        this.obstacles = this.physics.add.staticGroup();
+        rects.forEach(r => {
+            const o = this.obstacles.create(r.x + r.w / 2, r.y + r.h / 2, null);
+            o.setVisible(false);
+            o.body.setSize(r.w, r.h);
+            o.label = r.label;
+        });
+        this.physics.add.collider(this.hero, this.obstacles);
+        // F2 debug
+        if (!this._f2) {
+            this._f2 = true;
+            this.input.keyboard.on('keydown-F2', () => {
+                this.obstacles.children.iterate(o => {
+                    if (!o.debugG) {
+                        o.debugG = this.add.graphics().lineStyle(1, 0xff0000)
+                            .strokeRect(o.body.x, o.body.y, o.body.width, o.body.height);
+                    } else { o.debugG.destroy(); o.debugG = null; }
+                });
+            });
+        }
+
+        // --- Debug Red Boundaries (X) ---
+        const redBoundaries = this.add.graphics().setDepth(100).setVisible(false);
+        redBoundaries.lineStyle(2, 0xff0000, 0.8);
+        rects.forEach(r => {
+            redBoundaries.strokeRect(r.x, r.y, r.w, r.h);
+        });
+
+        if (!this._xHook) {
+            this._xHook = true;
+            this.input.keyboard.on('keydown-X', () => {
+                redBoundaries.setVisible(!redBoundaries.visible);
+            });
+        }
 
         // --- Input & Properties ---
         this.keys = this.input.keyboard.createCursorKeys();
@@ -79,6 +127,7 @@ class PlayScene extends Phaser.Scene {
 
         // --- Camera ---
         this.cameras.main.startFollow(this.hero);
+        this.cameras.main.setBounds(0, 0, map.width, map.height);
         this.cameras.main.roundPixels = true;
     }
 
@@ -164,7 +213,7 @@ const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 450,
-    backgroundColor: '#00ff00',
+    backgroundColor: '#000000',
     pixelArt: true,
     roundPixels: true,
     physics: {
