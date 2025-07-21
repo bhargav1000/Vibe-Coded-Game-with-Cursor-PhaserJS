@@ -24,10 +24,10 @@ class PlayScene extends Phaser.Scene {
 
         // --- Collisions ---
         const rects = [
-            { x: 135, y: 120, w: 1012, h: 5, label: 'arena_top' },
-            { x: 105, y: 634, w: 1012, h: 5, label: 'arena_bottom' },
-            { x: 135, y: 120, w: 5, h: 528, label: 'arena_left' },
-            { x: 1068, y: 120, w: 5, h: 528, label: 'arena_right' }
+            { x: 135, y: 120, w: 1268, h: 5, label: 'arena_top' },
+            { x: 105, y: 818, w: 1265, h: 5, label: 'arena_bottom' },
+            { x: 135, y: 120, w: 5, h: 728, label: 'arena_left' },
+            { x: 1368, y: 120, w: 5, h: 728, label: 'arena_right' }
         ];
         if (this.obstacles) this.obstacles.clear(true, true);
         this.obstacles = this.physics.add.staticGroup();
@@ -107,7 +107,7 @@ class PlayScene extends Phaser.Scene {
             this.anims.create({
                 key: `melee-${direction}`,
                 frames: this.anims.generateFrameNumbers('melee', { start: startFrame, end: startFrame + 14 }),
-                frameRate: 20,
+                frameRate: 40,
                 repeat: 0
             });
 
