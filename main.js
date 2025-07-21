@@ -3,6 +3,13 @@ class PlayScene extends Phaser.Scene {
         super('PlayScene');
     }
 
+    init() {
+        // Reset all state variables for a clean restart
+        this.isDeathSequenceActive = false;
+        this.gameOverActive = false;
+        this._xHookInitialized = false; // Use a more specific name for the debug flag
+    }
+
     preload() {
         // Load all assets with the correct, visually confirmed 128x128 frame size.
         this.load.image('boss_arena', 'map_assets/boss_arena.png');
@@ -216,8 +223,8 @@ class PlayScene extends Phaser.Scene {
         redBoundaries.strokeRect(this.purpleKnight.body.x, this.purpleKnight.body.y, this.purpleKnight.body.width, this.purpleKnight.body.height);
 
 
-        if (!this._xHook) {
-            this._xHook = true;
+        if (!this._xHookInitialized) {
+            this._xHookInitialized = true;
             this.blueBoundaries = this.add.graphics().setDepth(100).setVisible(false);
             this.greenBoundaries = this.add.graphics().setDepth(100).setVisible(false);
             this.input.keyboard.on('keydown-X', () => {
@@ -373,10 +380,12 @@ class PlayScene extends Phaser.Scene {
     }
 
     showGameOverScreen(didWin) {
+        this.gameOverActive = true;
+        this.isDeathSequenceActive = false; // Allow Q to be pressed
         this.gameOverText.setText(didWin ? 'YOU WIN' : 'YOU DIED').setVisible(true);
+
+        // Only show restart prompt on loss
         if (!didWin) {
-            this.gameOverActive = true;
-            this.isDeathSequenceActive = false; // Allow Q to be pressed
             this.restartText.setVisible(true);
         }
     }
@@ -484,16 +493,14 @@ class PlayScene extends Phaser.Scene {
             this.greenBoundaries.strokeCircle(this.knightCollider.body.x + this.knightCollider.body.radius, this.knightCollider.body.y + this.knightCollider.body.radius, this.knightCollider.body.radius);
         }
 
-
+        // --- Hero Input & Movement ---
         const { left, right, up, down, space, m, r, k, n, s } = this.keys;
 
         const currentAnim = this.hero.anims.currentAnim;
         const isActionInProgress = currentAnim && (currentAnim.key.startsWith('melee-') || currentAnim.key.startsWith('rolling-') || currentAnim.key.startsWith('kick-') || currentAnim.key.startsWith('melee2-') || currentAnim.key.startsWith('special1-')) && this.hero.anims.isPlaying;
 
         if (isActionInProgress) {
-            if (currentAnim.key.startsWith('melee-')) {
-                this.hero.body.setVelocity(0, 0);
-            } else if (currentAnim.key.startsWith('rolling-')) {
+            if (currentAnim.key.startsWith('rolling-')) {
                 const rollVelocity = new Phaser.Math.Vector2();
                 switch (this.facing) {
                     case 'n': rollVelocity.y = -1; break;
@@ -507,6 +514,8 @@ class PlayScene extends Phaser.Scene {
                 }
                 rollVelocity.normalize().scale(this.rollSpeed);
                 this.hero.body.setVelocity(rollVelocity.x, rollVelocity.y);
+            } else {
+                this.hero.body.setVelocity(0, 0);
             }
             return;
         }
@@ -572,7 +581,7 @@ class PlayScene extends Phaser.Scene {
         } else {
             this.hero.anims.play(`idle-${this.facing}`, true);
         }
-        
+
         this.hero.body.setVelocity(velocity.x, velocity.y);
     }
 }
