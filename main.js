@@ -13,7 +13,8 @@ class PlayScene extends Phaser.Scene {
         this.load.spritesheet('rolling', 'Rolling.png', { frameWidth: 128, frameHeight: 128 });
         this.load.spritesheet('take-damage', 'TakeDamage.png', { frameWidth: 128, frameHeight: 128 });
         this.load.spritesheet('kick', 'Kick.png', { frameWidth: 128, frameHeight: 128 });
-        this.load.spritesheet('cast-spell', 'CastSpell.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('melee2', 'Melee2.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('special1', 'Special1.png', { frameWidth: 128, frameHeight: 128 });
     }
 
     create() {
@@ -27,7 +28,9 @@ class PlayScene extends Phaser.Scene {
         this.keys.m = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
         this.keys.r = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
         this.keys.k = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
-        this.keys.c = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+        this.keys.n = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.N);
+        this.keys.s = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+        this.keys.d = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
         this.walkSpeed = 200;
         this.runSpeed = 350;
         this.rollSpeed = 400;
@@ -85,14 +88,21 @@ class PlayScene extends Phaser.Scene {
 
             this.anims.create({
                 key: `kick-${direction}`,
-                frames: this.anims.generateFrameNumbers('kick', { start: startFrame, end: startFrame + 7 }),
+                frames: this.anims.generateFrameNumbers('kick', { start: startFrame, end: startFrame + 14 }),
+                frameRate: 40,
+                repeat: 0
+            });
+
+            this.anims.create({
+                key: `melee2-${direction}`,
+                frames: this.anims.generateFrameNumbers('melee2', { start: startFrame, end: startFrame + 14 }),
                 frameRate: 24,
                 repeat: 0
             });
 
             this.anims.create({
-                key: `cast-spell-${direction}`,
-                frames: this.anims.generateFrameNumbers('cast-spell', { start: startFrame, end: startFrame + 14 }),
+                key: `special1-${direction}`,
+                frames: this.anims.generateFrameNumbers('special1', { start: startFrame, end: startFrame + 14 }),
                 frameRate: 24,
                 repeat: 0
             });
@@ -106,7 +116,7 @@ class PlayScene extends Phaser.Scene {
         this.hero.takeDamage = this.takeDamage.bind(this);
 
         this.hero.on('animationcomplete', (animation) => {
-            if (animation.key.startsWith('melee-') || animation.key.startsWith('rolling-') || animation.key.startsWith('take-damage-') || animation.key.startsWith('kick-') || animation.key.startsWith('cast-spell-')) {
+            if (animation.key.startsWith('melee-') || animation.key.startsWith('rolling-') || animation.key.startsWith('take-damage-') || animation.key.startsWith('kick-') || animation.key.startsWith('melee2-') || animation.key.startsWith('special1-')) {
                 this.hero.anims.play(`idle-${this.facing}`, true);
             }
         }, this);
@@ -338,10 +348,10 @@ class PlayScene extends Phaser.Scene {
             this.greenBoundaries.strokeRect(this.knightCollider.body.x, this.knightCollider.body.y, this.knightCollider.body.width, this.knightCollider.body.height);
         }
 
-        const { left, right, up, down, space, m, r, k, c } = this.keys;
+        const { left, right, up, down, space, m, r, k, n, s } = this.keys;
 
         const currentAnim = this.hero.anims.currentAnim;
-        const isActionInProgress = currentAnim && (currentAnim.key.startsWith('melee-') || currentAnim.key.startsWith('rolling-') || currentAnim.key.startsWith('kick-') || currentAnim.key.startsWith('cast-spell-')) && this.hero.anims.isPlaying;
+        const isActionInProgress = currentAnim && (currentAnim.key.startsWith('melee-') || currentAnim.key.startsWith('rolling-') || currentAnim.key.startsWith('kick-') || currentAnim.key.startsWith('melee2-') || currentAnim.key.startsWith('special1-')) && this.hero.anims.isPlaying;
 
         if (isActionInProgress) {
             if (currentAnim.key.startsWith('melee-')) {
@@ -379,8 +389,13 @@ class PlayScene extends Phaser.Scene {
             return;
         }
 
-        if (Phaser.Input.Keyboard.JustDown(c)) {
-            this.hero.anims.play(`cast-spell-${this.facing}`, true);
+        if (Phaser.Input.Keyboard.JustDown(n)) {
+            this.hero.anims.play(`melee2-${this.facing}`, true);
+            return;
+        }
+
+        if (Phaser.Input.Keyboard.JustDown(s)) {
+            this.hero.anims.play(`special1-${this.facing}`, true);
             return;
         }
 
