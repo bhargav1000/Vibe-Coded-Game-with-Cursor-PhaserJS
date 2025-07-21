@@ -12,6 +12,8 @@ class PlayScene extends Phaser.Scene {
         this.load.spritesheet('melee', 'Melee.png', { frameWidth: 128, frameHeight: 128 });
         this.load.spritesheet('rolling', 'Rolling.png', { frameWidth: 128, frameHeight: 128 });
         this.load.spritesheet('take-damage', 'TakeDamage.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('kick', 'Kick.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('cast-spell', 'CastSpell.png', { frameWidth: 128, frameHeight: 128 });
     }
 
     create() {
@@ -24,6 +26,8 @@ class PlayScene extends Phaser.Scene {
         this.keys.space = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         this.keys.m = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
         this.keys.r = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+        this.keys.k = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
+        this.keys.c = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
         this.walkSpeed = 200;
         this.runSpeed = 350;
         this.rollSpeed = 400;
@@ -78,16 +82,31 @@ class PlayScene extends Phaser.Scene {
                 frameRate: 20,
                 repeat: 0
             });
+
+            this.anims.create({
+                key: `kick-${direction}`,
+                frames: this.anims.generateFrameNumbers('kick', { start: startFrame, end: startFrame + 7 }),
+                frameRate: 24,
+                repeat: 0
+            });
+
+            this.anims.create({
+                key: `cast-spell-${direction}`,
+                frames: this.anims.generateFrameNumbers('cast-spell', { start: startFrame, end: startFrame + 14 }),
+                frameRate: 24,
+                repeat: 0
+            });
         });
 
         // --- Hero with Physics ---
         this.hero = this.physics.add.sprite(map.width / 2, map.height / 2, 'idle', 0);
-        this.hero.body.setSize(32, 32, true);
+        this.hero.body.setSize(32, 48, true);
+        this.hero.body.setOffset(48, 42);
         this.hero.body.pushable = false;
         this.hero.takeDamage = this.takeDamage.bind(this);
 
         this.hero.on('animationcomplete', (animation) => {
-            if (animation.key.startsWith('melee-') || animation.key.startsWith('rolling-') || animation.key.startsWith('take-damage-')) {
+            if (animation.key.startsWith('melee-') || animation.key.startsWith('rolling-') || animation.key.startsWith('take-damage-') || animation.key.startsWith('kick-') || animation.key.startsWith('cast-spell-')) {
                 this.hero.anims.play(`idle-${this.facing}`, true);
             }
         }, this);
@@ -103,6 +122,12 @@ class PlayScene extends Phaser.Scene {
         this.blackKnight.maxHealth = 50;
         this.blackKnight.health = this.blackKnight.maxHealth;
         this.blackKnight.attackCooldown = 0;
+
+        // --- Black Knight's Physical Body (Green Box) ---
+        this.knightCollider = this.physics.add.sprite(this.blackKnight.x, this.blackKnight.y, null).setVisible(false);
+        this.knightCollider.body.setSize(32, 48, true);
+        this.knightCollider.body.setOffset(0, 10);
+        this.knightCollider.body.pushable = false;
 
         this.blackKnight.on('animationcomplete', (animation) => {
             if (animation.key.startsWith('take-damage-')) {
@@ -128,9 +153,12 @@ class PlayScene extends Phaser.Scene {
         });
         this.physics.add.collider(this.hero, this.obstacles);
         this.physics.add.collider(this.blackKnight, this.obstacles);
-        this.physics.add.collider(this.hero, this.blackKnight);
-        this.physics.add.overlap(this.hero, this.blackKnight, this.handlePlayerAttackOnKnight, (proc, hero, knight) => {
-            return hero.anims.currentAnim && hero.anims.currentAnim.key.startsWith('melee-');
+        this.physics.add.collider(this.knightCollider, this.obstacles);
+        this.physics.add.collider(this.hero, this.knightCollider);
+        this.physics.add.overlap(this.hero, this.blackKnight, this.handlePlayerAttackOnKnight, (hero, knight) => {
+            const isHeroAttacking = hero.anims.currentAnim && hero.anims.currentAnim.key.startsWith('melee-');
+            const canKnightTakeDamage = !knight.isTakingDamage;
+            return isHeroAttacking && canKnightTakeDamage;
         }, this);
         // F2 debug
         if (!this._f2) {
@@ -156,8 +184,12 @@ class PlayScene extends Phaser.Scene {
 
         if (!this._xHook) {
             this._xHook = true;
+            this.blueBoundaries = this.add.graphics().setDepth(100).setVisible(false);
+            this.greenBoundaries = this.add.graphics().setDepth(100).setVisible(false);
             this.input.keyboard.on('keydown-X', () => {
                 redBoundaries.setVisible(!redBoundaries.visible);
+                this.blueBoundaries.setVisible(!this.blueBoundaries.visible);
+                this.greenBoundaries.setVisible(!this.greenBoundaries.visible);
             });
             this.redBoundaries = redBoundaries; // Store for update loop
             this.boundaryRects = rects; // Store for update loop
@@ -169,6 +201,11 @@ class PlayScene extends Phaser.Scene {
         this.healthBarBg = this.add.graphics().setScrollFactor(0).setDepth(101);
         this.healthBar = this.add.graphics().setScrollFactor(0).setDepth(102);
         this.updateHealthBar(); // Initial draw
+
+        // --- Black Knight Health Bar ---
+        this.knightHealthBarBg = this.add.graphics().setScrollFactor(0).setDepth(101);
+        this.knightHealthBar = this.add.graphics().setScrollFactor(0).setDepth(102);
+        this.updateKnightHealthBar();
 
         // --- Camera ---
         this.cameras.main.startFollow(this.hero);
@@ -183,6 +220,7 @@ class PlayScene extends Phaser.Scene {
 
         knight.isTakingDamage = true;
         this.takeDamage(knight, hero);
+        // The knight should be immune for a short period after being hit.
         this.time.delayedCall(500, () => { knight.isTakingDamage = false; });
     }
 
@@ -190,9 +228,15 @@ class PlayScene extends Phaser.Scene {
         victim.health -= 10;
         if (victim === this.hero) {
             this.updateHealthBar();
+        } else if (victim === this.blackKnight) {
+            this.updateKnightHealthBar();
         }
 
-        const angle = Phaser.Math.Angle.Between(attacker.x, attacker.y, victim.x, victim.y);
+        let angle = Phaser.Math.Angle.Between(attacker.x, attacker.y, victim.x, victim.y);
+        if (victim === this.blackKnight) {
+            // Invert the angle for the knockback effect
+            angle = Phaser.Math.Angle.Wrap(angle + Math.PI);
+        }
         const direction = this.getDirectionFromAngle(angle);
         victim.anims.play(`take-damage-${direction}`, true);
 
@@ -208,6 +252,22 @@ class PlayScene extends Phaser.Scene {
         if (victim.health <= 0) {
             victim.disableBody(true, true); // Or handle death another way
         }
+    }
+
+    updateKnightHealthBar() {
+        const w = 400;
+        const h = 20;
+        const x = (this.game.config.width - w) / 2;
+        const y = this.game.config.height - h - 20;
+
+        this.knightHealthBarBg.clear();
+        this.knightHealthBarBg.fillStyle(0x000000);
+        this.knightHealthBarBg.fillRect(x, y, w, h);
+
+        this.knightHealthBar.clear();
+        this.knightHealthBar.fillStyle(0xff0000);
+        const healthWidth = (this.blackKnight.health / this.blackKnight.maxHealth) * w;
+        this.knightHealthBar.fillRect(x, y, Math.max(0, healthWidth), h);
     }
 
     updateHealthBar() {
@@ -244,6 +304,7 @@ class PlayScene extends Phaser.Scene {
         // --- Black Knight AI ---
         const knight = this.blackKnight;
         if (knight.active) {
+            this.knightCollider.setPosition(knight.x, knight.y);
             const knightAnim = knight.anims.currentAnim;
             const isKnightInAction = (knightAnim && knightAnim.key.startsWith('take-damage-')) || knight.isTakingDamage;
 
@@ -252,6 +313,7 @@ class PlayScene extends Phaser.Scene {
                 const direction = this.getDirectionFromAngle(angle);
 
                 knight.body.setVelocity(0, 0);
+                this.knightCollider.body.setVelocity(0, 0);
                 knight.anims.play(`idle-${direction}`, true);
             }
         }
@@ -265,11 +327,21 @@ class PlayScene extends Phaser.Scene {
             });
             this.redBoundaries.strokeRect(this.blackKnight.body.x, this.blackKnight.body.y, this.blackKnight.body.width, this.blackKnight.body.height);
         }
+        if (this.blueBoundaries && this.blueBoundaries.visible) {
+            this.blueBoundaries.clear();
+            this.blueBoundaries.lineStyle(2, 0x0000ff, 0.8);
+            this.blueBoundaries.strokeRect(this.hero.body.x, this.hero.body.y, this.hero.body.width, this.hero.body.height);
+        }
+        if (this.greenBoundaries && this.greenBoundaries.visible) {
+            this.greenBoundaries.clear();
+            this.greenBoundaries.lineStyle(2, 0x00ff00, 0.8);
+            this.greenBoundaries.strokeRect(this.knightCollider.body.x, this.knightCollider.body.y, this.knightCollider.body.width, this.knightCollider.body.height);
+        }
 
-        const { left, right, up, down, space, m, r } = this.keys;
+        const { left, right, up, down, space, m, r, k, c } = this.keys;
 
         const currentAnim = this.hero.anims.currentAnim;
-        const isActionInProgress = currentAnim && (currentAnim.key.startsWith('melee-') || currentAnim.key.startsWith('rolling-')) && this.hero.anims.isPlaying;
+        const isActionInProgress = currentAnim && (currentAnim.key.startsWith('melee-') || currentAnim.key.startsWith('rolling-') || currentAnim.key.startsWith('kick-') || currentAnim.key.startsWith('cast-spell-')) && this.hero.anims.isPlaying;
 
         if (isActionInProgress) {
             if (currentAnim.key.startsWith('melee-')) {
@@ -299,6 +371,16 @@ class PlayScene extends Phaser.Scene {
 
         if (Phaser.Input.Keyboard.JustDown(r)) {
             this.hero.anims.play(`rolling-${this.facing}`, true);
+            return;
+        }
+
+        if (Phaser.Input.Keyboard.JustDown(k)) {
+            this.hero.anims.play(`kick-${this.facing}`, true);
+            return;
+        }
+
+        if (Phaser.Input.Keyboard.JustDown(c)) {
+            this.hero.anims.play(`cast-spell-${this.facing}`, true);
             return;
         }
 
