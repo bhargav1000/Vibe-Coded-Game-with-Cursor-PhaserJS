@@ -432,10 +432,15 @@ class PlayScene extends Phaser.Scene {
     }
 
     update(time, delta) {
-        if (this.gameOverActive && Phaser.Input.Keyboard.JustDown(this.keys.q)) {
-            this.scene.restart();
+        if (this.gameOverActive) {
+            if (Phaser.Input.Keyboard.JustDown(this.keys.q)) {
+                this.scene.restart();
+            }
+            return; // Lock all other updates
         }
+
         if (this.isDeathSequenceActive) {
+            this.hero.body.setVelocity(0, 0);
             return;
         }
 
@@ -478,6 +483,7 @@ class PlayScene extends Phaser.Scene {
             this.greenBoundaries.lineStyle(2, 0x00ff00, 0.8);
             this.greenBoundaries.strokeCircle(this.knightCollider.body.x + this.knightCollider.body.radius, this.knightCollider.body.y + this.knightCollider.body.radius, this.knightCollider.body.radius);
         }
+
 
         const { left, right, up, down, space, m, r, k, n, s } = this.keys;
 
