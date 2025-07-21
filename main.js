@@ -17,6 +17,7 @@ class PlayScene extends Phaser.Scene {
         this.load.spritesheet('special1', 'Special1.png', { frameWidth: 128, frameHeight: 128 });
         this.load.spritesheet('die', 'Die.png', { frameWidth: 128, frameHeight: 128 });
         this.load.spritesheet('unsheath', 'UnSheathSword.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.image('healthbar', 'healthbar.png');
     }
 
     create() {
@@ -32,6 +33,7 @@ class PlayScene extends Phaser.Scene {
         this.keys.k = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
         this.keys.n = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.N);
         this.keys.s = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+        this.keys.q = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
         this.keys.d = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
         this.walkSpeed = 200;
         this.runSpeed = 350;
@@ -56,14 +58,14 @@ class PlayScene extends Phaser.Scene {
 
             this.anims.create({
                 key: `walk-${direction}`,
-                frames: this.anims.generateFrameNumbers('walk', { start: startFrame, end: startFrame + 7 }),
+                frames: this.anims.generateFrameNumbers('walk', { start: startFrame, end: startFrame + 14 }),
                 frameRate: 15,
                 repeat: -1
             });
 
             this.anims.create({
                 key: `run-${direction}`,
-                frames: this.anims.generateFrameNumbers('run', { start: startFrame, end: startFrame + 7 }),
+                frames: this.anims.generateFrameNumbers('run', { start: startFrame, end: startFrame + 14 }),
                 frameRate: 20,
                 repeat: -1
             });
@@ -119,17 +121,20 @@ class PlayScene extends Phaser.Scene {
             repeat: 0
         });
 
-        this.anims.create({
-            key: 'unsheath',
-            frames: this.anims.generateFrameNumbers('unsheath', { start: 0, end: 14 }),
-            frameRate: 24,
-            repeat: 0
+        directions.forEach((direction, index) => {
+            const startFrame = index * framesPerRow;
+            this.anims.create({
+                key: `unsheath-${direction}`,
+                frames: this.anims.generateFrameNumbers('unsheath', { start: startFrame, end: startFrame + 14 }),
+                frameRate: 15,
+                repeat: 0
+            });
         });
 
         // --- Hero with Physics ---
         this.hero = this.physics.add.sprite(map.width / 2, map.height / 2, 'idle', 0);
-        this.hero.body.setSize(32, 48, true);
-        this.hero.body.setOffset(48, 42);
+        this.hero.body.setCircle(24);
+        this.hero.body.setOffset(40, 40);
         this.hero.body.pushable = false;
         this.hero.takeDamage = this.takeDamage.bind(this);
 
@@ -139,28 +144,28 @@ class PlayScene extends Phaser.Scene {
             }
         }, this);
 
-        // --- Black Knight ---
-        this.blackKnight = this.physics.add.sprite(map.width / 2, map.height / 4, 'idle', 0);
-        this.blackKnight.body.setSize(64, 64, true);
-        this.blackKnight.body.setOffset(32, 48); // x: 32 for centering, y: 48 to move it down
-        this.blackKnight.setTint(0x666666);
-        this.blackKnight.body.pushable = false;
-        this.blackKnight.anims.play('idle-s', true); // Face down towards the player
-        this.blackKnight.takeDamage = this.takeDamage.bind(this);
-        this.blackKnight.maxHealth = 50;
-        this.blackKnight.health = this.blackKnight.maxHealth;
-        this.blackKnight.attackCooldown = 0;
+        // --- Purple Knight ---
+        this.purpleKnight = this.physics.add.sprite(map.width / 2, map.height / 4, 'idle', 0);
+        this.purpleKnight.body.setSize(64, 64, true);
+        this.purpleKnight.body.setOffset(32, 48); // x: 32 for centering, y: 48 to move it down
+        this.purpleKnight.setTint(0x9400D3); // A nice purple
+        this.purpleKnight.body.pushable = false;
+        this.purpleKnight.anims.play('idle-s', true); // Face down towards the player
+        this.purpleKnight.takeDamage = this.takeDamage.bind(this);
+        this.purpleKnight.maxHealth = 50;
+        this.purpleKnight.health = this.purpleKnight.maxHealth;
+        this.purpleKnight.attackCooldown = 0;
 
-        // --- Black Knight's Physical Body (Green Box) ---
-        this.knightCollider = this.physics.add.sprite(this.blackKnight.x, this.blackKnight.y, null).setVisible(false);
-        this.knightCollider.body.setSize(38, 48, true);
-        this.knightCollider.body.setOffset(-3, 6);
+        // --- Purple Knight's Physical Body (Green Box) ---
+        this.knightCollider = this.physics.add.sprite(this.purpleKnight.x, this.purpleKnight.y, null).setVisible(false);
+        this.knightCollider.body.setCircle(27);
+        this.knightCollider.body.setOffset(-12, 8);
         this.knightCollider.body.pushable = false;
 
-        this.blackKnight.on('animationcomplete', (animation) => {
+        this.purpleKnight.on('animationcomplete', (animation) => {
             if (animation.key.startsWith('take-damage-')) {
-                const direction = this.getDirectionFromAngle(Phaser.Math.Angle.Between(this.blackKnight.x, this.blackKnight.y, this.hero.x, this.hero.y));
-                this.blackKnight.anims.play(`idle-${direction}`, true);
+                const direction = this.getDirectionFromAngle(Phaser.Math.Angle.Between(this.purpleKnight.x, this.purpleKnight.y, this.hero.x, this.hero.y));
+                this.purpleKnight.anims.play(`idle-${direction}`, true);
             }
         }, this);
 
@@ -171,7 +176,7 @@ class PlayScene extends Phaser.Scene {
             { x: 135, y: 165, w: 5, h: 728, label: 'arena_left' },
             { x: 1368, y: 165, w: 5, h: 728, label: 'arena_right' }
         ];
-        if (this.obstacles) this.obstacles.clear(true, true);
+        if (this.obstacles) this.obstacles.destroy();
         this.obstacles = this.physics.add.staticGroup();
         rects.forEach(r => {
             const o = this.obstacles.create(r.x + r.w / 2, r.y + r.h / 2, null);
@@ -180,10 +185,9 @@ class PlayScene extends Phaser.Scene {
             o.label = r.label;
         });
         this.physics.add.collider(this.hero, this.obstacles);
-        this.physics.add.collider(this.blackKnight, this.obstacles);
-        this.physics.add.collider(this.knightCollider, this.obstacles);
+        this.physics.add.collider(this.purpleKnight, this.obstacles);
         this.physics.add.collider(this.hero, this.knightCollider);
-        this.physics.add.overlap(this.hero, this.blackKnight, this.handlePlayerAttackOnKnight, (hero, knight) => {
+        this.physics.add.overlap(this.hero, this.purpleKnight, this.handlePlayerAttackOnKnight, (hero, knight) => {
             if (knight.isDead) return false;
             const currentAnimKey = hero.anims.currentAnim ? hero.anims.currentAnim.key : '';
             const isAttacking = ['melee-', 'kick-', 'melee2-', 'special1-'].some(prefix => currentAnimKey.startsWith(prefix));
@@ -209,7 +213,7 @@ class PlayScene extends Phaser.Scene {
         rects.forEach(r => {
             redBoundaries.strokeRect(r.x, r.y, r.w, r.h);
         });
-        redBoundaries.strokeRect(this.blackKnight.body.x, this.blackKnight.body.y, this.blackKnight.body.width, this.blackKnight.body.height);
+        redBoundaries.strokeRect(this.purpleKnight.body.x, this.purpleKnight.body.y, this.purpleKnight.body.width, this.purpleKnight.body.height);
 
 
         if (!this._xHook) {
@@ -223,19 +227,41 @@ class PlayScene extends Phaser.Scene {
             });
             this.redBoundaries = redBoundaries; // Store for update loop
             this.boundaryRects = rects; // Store for update loop
+
+            // --- Purple Knight Health Bar ---
+            const barX = this.game.config.width / 2;
+            const barY = this.game.config.height - 30; // Nudge it up a bit for the smaller size
+            this.knightHealthBarBg = this.add.image(barX, barY, 'healthbar').setOrigin(0.5).setScale(0.1).setScrollFactor(0).setDepth(102);
+            this.knightHealthBarBg.setCrop(0, 0, this.knightHealthBarBg.width - 38, this.knightHealthBarBg.height);
+            this.knightHealthBar = this.add.graphics().setScrollFactor(0).setDepth(101);
+            this.knightNameText = this.add.text(barX, barY - (this.knightHealthBarBg.displayHeight / 2) + 30, 'Your Purple Knight', {
+                fontSize: '10px',
+                fill: '#fff',
+                fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(103);
+            this.updateKnightHealthBar();
+
+            // --- Game Over UI ---
+            this.gameOverText = this.add.text(this.game.config.width / 2, this.game.config.height / 2 - 40, '', {
+                fontSize: '48px',
+                fill: '#ff0000',
+                fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(200).setVisible(false);
+
+            this.restartText = this.add.text(this.game.config.width / 2, this.game.config.height / 2 + 20, 'Press Q to Restart', {
+                fontSize: '24px',
+                fill: '#ffffff'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(200).setVisible(false);
+            this.gameOverActive = false;
+
+
+            // --- Health Bar ---
+            this.hero.maxHealth = 100;
+            this.hero.health = this.hero.maxHealth;
+            this.healthBarBg = this.add.graphics().setScrollFactor(0).setDepth(101);
+            this.healthBar = this.add.graphics().setScrollFactor(0).setDepth(102);
+            this.updateHealthBar(); // Initial draw
         }
-
-        // --- Health Bar ---
-        this.hero.maxHealth = 100;
-        this.hero.health = this.hero.maxHealth;
-        this.healthBarBg = this.add.graphics().setScrollFactor(0).setDepth(101);
-        this.healthBar = this.add.graphics().setScrollFactor(0).setDepth(102);
-        this.updateHealthBar(); // Initial draw
-
-        // --- Black Knight Health Bar ---
-        this.knightHealthBarBg = this.add.graphics().setScrollFactor(0).setDepth(101);
-        this.knightHealthBar = this.add.graphics().setScrollFactor(0).setDepth(102);
-        this.updateKnightHealthBar();
 
         // --- Camera ---
         this.cameras.main.startFollow(this.hero);
@@ -266,7 +292,7 @@ class PlayScene extends Phaser.Scene {
         victim.health -= damage;
         if (victim === this.hero) {
             this.updateHealthBar();
-        } else if (victim === this.blackKnight) {
+        } else if (victim === this.purpleKnight) {
             this.updateKnightHealthBar();
         }
 
@@ -278,7 +304,7 @@ class PlayScene extends Phaser.Scene {
             knockbackDistance = 20;
         }
 
-        if (victim === this.blackKnight && knockbackDistance > 0) {
+        if (victim === this.purpleKnight && knockbackDistance > 0) {
             const knockbackAngle = Phaser.Math.Angle.Between(attacker.x, attacker.y, victim.x, victim.y);
             const knockbackVelocity = new Phaser.Math.Vector2(Math.cos(knockbackAngle), Math.sin(knockbackAngle)).scale(knockbackDistance * 10);
             victim.body.setVelocity(knockbackVelocity.x, knockbackVelocity.y);
@@ -292,7 +318,7 @@ class PlayScene extends Phaser.Scene {
         }
 
         let angle = Phaser.Math.Angle.Between(attacker.x, attacker.y, victim.x, victim.y);
-        if (victim === this.blackKnight) {
+        if (victim === this.purpleKnight) {
             // Invert the angle for the knockback effect
             angle = Phaser.Math.Angle.Wrap(angle + Math.PI);
         }
@@ -301,8 +327,8 @@ class PlayScene extends Phaser.Scene {
 
         victim.setTint(0xff0000);
         this.time.delayedCall(200, () => {
-            if (victim === this.blackKnight) {
-                victim.setTint(0x666666);
+            if (victim === this.purpleKnight) {
+                victim.setTint(0x9400D3);
             } else {
                 victim.clearTint();
             }
@@ -313,39 +339,66 @@ class PlayScene extends Phaser.Scene {
             victim.isDead = true;
             victim.body.setVelocity(0, 0);
 
-            if (victim === this.blackKnight) {
+            if (victim === this.purpleKnight) {
                 this.knightCollider.body.setVelocity(0, 0);
-                this.hero.anims.playReverse('unsheath');
+                const direction = this.getDirectionFromAngle(Phaser.Math.Angle.Between(this.hero.x, this.hero.y, victim.x, victim.y));
+                this.hero.anims.playReverse(`unsheath-${direction}`);
+                // After animations, show win screen and restart
+                this.time.delayedCall(1000, () => {
+                    this.showGameOverScreen(true);
+                    this.time.delayedCall(2000, () => this.scene.restart());
+                });
+                this.knightHealthBarBg.setVisible(false);
+                this.knightHealthBar.setVisible(false);
+                this.knightNameText.setVisible(false);
             } else { // victim is hero
-                const victor = this.blackKnight;
+                const victor = this.purpleKnight;
                 const direction = this.getDirectionFromAngle(Phaser.Math.Angle.Between(victor.x, victor.y, victim.x, victim.y));
                 victor.anims.play(`idle-${direction}`, true);
+                this.healthBarBg.setVisible(false);
+                this.healthBar.setVisible(false);
+                this.time.delayedCall(1500, () => {
+                    this.showGameOverScreen(false);
+                });
             }
 
             victim.anims.play('die', true);
             victim.once('animationcomplete-die', () => {
                 victim.disableBody(true, false); // Keep sprite visible, disable physics
-                if (victim === this.blackKnight) {
+                if (victim === this.purpleKnight) {
                     this.knightCollider.disableBody(true, true);
                 }
             });
         }
     }
 
+    showGameOverScreen(didWin) {
+        this.gameOverText.setText(didWin ? 'YOU WIN' : 'YOU DIED').setVisible(true);
+        if (!didWin) {
+            this.gameOverActive = true;
+            this.isDeathSequenceActive = false; // Allow Q to be pressed
+            this.restartText.setVisible(true);
+        }
+    }
+
     updateKnightHealthBar() {
-        const w = 400;
-        const h = 20;
-        const x = (this.game.config.width - w) / 2;
-        const y = this.game.config.height - h - 20;
-
-        this.knightHealthBarBg.clear();
-        this.knightHealthBarBg.fillStyle(0x000000);
-        this.knightHealthBarBg.fillRect(x, y, w, h);
-
         this.knightHealthBar.clear();
         this.knightHealthBar.fillStyle(0xff0000);
-        const healthWidth = (this.blackKnight.health / this.blackKnight.maxHealth) * w;
-        this.knightHealthBar.fillRect(x, y, Math.max(0, healthWidth), h);
+
+        const healthPercentage = this.purpleKnight.health / this.purpleKnight.maxHealth;
+        const barTopLeftX = this.knightHealthBarBg.getTopLeft().x;
+        const barTopLeftY = this.knightHealthBarBg.getTopLeft().y;
+
+        // Final precision adjustments
+        const leftPadding = 86 * 0.1;
+        const rightPadding = 120 * 0.1;
+        const yOffset = 475 * 0.1;  // Previous offset + 70 pixels down
+        const barHeight = 72 * 0.1; // Height from last adjustment
+
+        const barInnerWidth = this.knightHealthBarBg.displayWidth - leftPadding - rightPadding;
+        const healthWidth = healthPercentage * barInnerWidth;
+
+        this.knightHealthBar.fillRect(barTopLeftX + leftPadding, barTopLeftY + yOffset, Math.max(0, healthWidth), barHeight);
     }
 
     updateHealthBar() {
@@ -379,12 +432,15 @@ class PlayScene extends Phaser.Scene {
     }
 
     update(time, delta) {
+        if (this.gameOverActive && Phaser.Input.Keyboard.JustDown(this.keys.q)) {
+            this.scene.restart();
+        }
         if (this.isDeathSequenceActive) {
             return;
         }
 
-        // --- Black Knight AI ---
-        const knight = this.blackKnight;
+        // --- Purple Knight AI ---
+        const knight = this.purpleKnight;
         if (knight.active) {
             if (knight.isDead) {
                 return;
@@ -410,17 +466,17 @@ class PlayScene extends Phaser.Scene {
             this.boundaryRects.forEach(r => {
                 this.redBoundaries.strokeRect(r.x, r.y, r.w, r.h);
             });
-            this.redBoundaries.strokeRect(this.blackKnight.body.x, this.blackKnight.body.y, this.blackKnight.body.width, this.blackKnight.body.height);
+            this.redBoundaries.strokeRect(this.purpleKnight.body.x, this.purpleKnight.body.y, this.purpleKnight.body.width, this.purpleKnight.body.height);
         }
         if (this.blueBoundaries && this.blueBoundaries.visible) {
             this.blueBoundaries.clear();
             this.blueBoundaries.lineStyle(2, 0x0000ff, 0.8);
-            this.blueBoundaries.strokeRect(this.hero.body.x, this.hero.body.y, this.hero.body.width, this.hero.body.height);
+            this.blueBoundaries.strokeCircle(this.hero.body.x + this.hero.body.radius, this.hero.body.y + this.hero.body.radius, this.hero.body.radius);
         }
         if (this.greenBoundaries && this.greenBoundaries.visible) {
             this.greenBoundaries.clear();
             this.greenBoundaries.lineStyle(2, 0x00ff00, 0.8);
-            this.greenBoundaries.strokeRect(this.knightCollider.body.x, this.knightCollider.body.y, this.knightCollider.body.width, this.knightCollider.body.height);
+            this.greenBoundaries.strokeCircle(this.knightCollider.body.x + this.knightCollider.body.radius, this.knightCollider.body.y + this.knightCollider.body.radius, this.knightCollider.body.radius);
         }
 
         const { left, right, up, down, space, m, r, k, n, s } = this.keys;
