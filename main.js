@@ -15,6 +15,8 @@ class PlayScene extends Phaser.Scene {
         this.load.spritesheet('kick', 'Kick.png', { frameWidth: 128, frameHeight: 128 });
         this.load.spritesheet('melee2', 'Melee2.png', { frameWidth: 128, frameHeight: 128 });
         this.load.spritesheet('special1', 'Special1.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('die', 'Die.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('unsheath', 'UnSheathSword.png', { frameWidth: 128, frameHeight: 128 });
     }
 
     create() {
@@ -35,6 +37,7 @@ class PlayScene extends Phaser.Scene {
         this.runSpeed = 350;
         this.rollSpeed = 400;
         this.facing = 's'; // Default facing direction
+        this.isDeathSequenceActive = false;
 
         // --- Animations ---
         // This order MUST match the sprite sheet layout and the user's explicit direction mapping.
@@ -103,9 +106,24 @@ class PlayScene extends Phaser.Scene {
             this.anims.create({
                 key: `special1-${direction}`,
                 frames: this.anims.generateFrameNumbers('special1', { start: startFrame, end: startFrame + 14 }),
-                frameRate: 24,
+                frameRate: 30,
                 repeat: 0
             });
+        });
+
+        // Add a single death animation, as it's not directional
+        this.anims.create({
+            key: 'die',
+            frames: this.anims.generateFrameNumbers('die', { start: 0, end: 14 }),
+            frameRate: 8,
+            repeat: 0
+        });
+
+        this.anims.create({
+            key: 'unsheath',
+            frames: this.anims.generateFrameNumbers('unsheath', { start: 0, end: 14 }),
+            frameRate: 24,
+            repeat: 0
         });
 
         // --- Hero with Physics ---
@@ -135,8 +153,8 @@ class PlayScene extends Phaser.Scene {
 
         // --- Black Knight's Physical Body (Green Box) ---
         this.knightCollider = this.physics.add.sprite(this.blackKnight.x, this.blackKnight.y, null).setVisible(false);
-        this.knightCollider.body.setSize(32, 48, true);
-        this.knightCollider.body.setOffset(0, 10);
+        this.knightCollider.body.setSize(38, 48, true);
+        this.knightCollider.body.setOffset(-3, 6);
         this.knightCollider.body.pushable = false;
 
         this.blackKnight.on('animationcomplete', (animation) => {
@@ -148,10 +166,10 @@ class PlayScene extends Phaser.Scene {
 
         // --- Collisions ---
         const rects = [
-            { x: 135, y: 120, w: 1268, h: 5, label: 'arena_top' },
+            { x: 135, y: 165, w: 1268, h: 5, label: 'arena_top' },
             { x: 105, y: 818, w: 1265, h: 5, label: 'arena_bottom' },
-            { x: 135, y: 120, w: 5, h: 728, label: 'arena_left' },
-            { x: 1368, y: 120, w: 5, h: 728, label: 'arena_right' }
+            { x: 135, y: 165, w: 5, h: 728, label: 'arena_left' },
+            { x: 1368, y: 165, w: 5, h: 728, label: 'arena_right' }
         ];
         if (this.obstacles) this.obstacles.clear(true, true);
         this.obstacles = this.physics.add.staticGroup();
@@ -166,9 +184,11 @@ class PlayScene extends Phaser.Scene {
         this.physics.add.collider(this.knightCollider, this.obstacles);
         this.physics.add.collider(this.hero, this.knightCollider);
         this.physics.add.overlap(this.hero, this.blackKnight, this.handlePlayerAttackOnKnight, (hero, knight) => {
-            const isHeroAttacking = hero.anims.currentAnim && hero.anims.currentAnim.key.startsWith('melee-');
+            if (knight.isDead) return false;
+            const currentAnimKey = hero.anims.currentAnim ? hero.anims.currentAnim.key : '';
+            const isAttacking = ['melee-', 'kick-', 'melee2-', 'special1-'].some(prefix => currentAnimKey.startsWith(prefix));
             const canKnightTakeDamage = !knight.isTakingDamage;
-            return isHeroAttacking && canKnightTakeDamage;
+            return isAttacking && canKnightTakeDamage;
         }, this);
         // F2 debug
         if (!this._f2) {
@@ -228,18 +248,47 @@ class PlayScene extends Phaser.Scene {
             return;
         }
 
+        const attackType = hero.anims.currentAnim.key.split('-')[0];
         knight.isTakingDamage = true;
-        this.takeDamage(knight, hero);
+        this.takeDamage(knight, hero, attackType);
         // The knight should be immune for a short period after being hit.
         this.time.delayedCall(500, () => { knight.isTakingDamage = false; });
     }
 
-    takeDamage(victim, attacker) {
-        victim.health -= 10;
+    takeDamage(victim, attacker, attackType) {
+        if (victim.isDead) return;
+
+        let damage = 10; // Default melee damage
+        if (attackType === 'kick') {
+            damage = 5;
+        }
+
+        victim.health -= damage;
         if (victim === this.hero) {
             this.updateHealthBar();
         } else if (victim === this.blackKnight) {
             this.updateKnightHealthBar();
+        }
+
+        // Knockback Logic
+        let knockbackDistance = 0;
+        if (attackType === 'kick') {
+            knockbackDistance = 8;
+        } else if (attackType === 'special1') {
+            knockbackDistance = 20;
+        }
+
+        if (victim === this.blackKnight && knockbackDistance > 0) {
+            const knockbackAngle = Phaser.Math.Angle.Between(attacker.x, attacker.y, victim.x, victim.y);
+            const knockbackVelocity = new Phaser.Math.Vector2(Math.cos(knockbackAngle), Math.sin(knockbackAngle)).scale(knockbackDistance * 10);
+            victim.body.setVelocity(knockbackVelocity.x, knockbackVelocity.y);
+            this.knightCollider.body.setVelocity(knockbackVelocity.x, knockbackVelocity.y);
+            this.time.delayedCall(150, () => {
+                if (victim.active && !victim.isDead) {
+                    victim.body.setVelocity(0, 0);
+                    this.knightCollider.body.setVelocity(0, 0);
+                }
+            });
         }
 
         let angle = Phaser.Math.Angle.Between(attacker.x, attacker.y, victim.x, victim.y);
@@ -259,8 +308,27 @@ class PlayScene extends Phaser.Scene {
             }
         });
 
-        if (victim.health <= 0) {
-            victim.disableBody(true, true); // Or handle death another way
+        if (victim.health <= 0 && !victim.isDead) {
+            this.isDeathSequenceActive = true;
+            victim.isDead = true;
+            victim.body.setVelocity(0, 0);
+
+            if (victim === this.blackKnight) {
+                this.knightCollider.body.setVelocity(0, 0);
+                this.hero.anims.playReverse('unsheath');
+            } else { // victim is hero
+                const victor = this.blackKnight;
+                const direction = this.getDirectionFromAngle(Phaser.Math.Angle.Between(victor.x, victor.y, victim.x, victim.y));
+                victor.anims.play(`idle-${direction}`, true);
+            }
+
+            victim.anims.play('die', true);
+            victim.once('animationcomplete-die', () => {
+                victim.disableBody(true, false); // Keep sprite visible, disable physics
+                if (victim === this.blackKnight) {
+                    this.knightCollider.disableBody(true, true);
+                }
+            });
         }
     }
 
@@ -311,9 +379,16 @@ class PlayScene extends Phaser.Scene {
     }
 
     update(time, delta) {
+        if (this.isDeathSequenceActive) {
+            return;
+        }
+
         // --- Black Knight AI ---
         const knight = this.blackKnight;
         if (knight.active) {
+            if (knight.isDead) {
+                return;
+            }
             this.knightCollider.setPosition(knight.x, knight.y);
             const knightAnim = knight.anims.currentAnim;
             const isKnightInAction = (knightAnim && knightAnim.key.startsWith('take-damage-')) || knight.isTakingDamage;
