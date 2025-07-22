@@ -168,8 +168,8 @@ class PlayScene extends Phaser.Scene {
 
         // --- Hero with Physics ---
         this.hero = this.physics.add.sprite(map.width / 2, map.height / 2, 'idle', 0);
-        this.hero.body.setCircle(24);
-        this.hero.body.setOffset(40, 40);
+        this.hero.body.setSize(72, 72, true);
+        this.hero.body.setOffset(29, 40);
         this.hero.body.pushable = false;
         this.hero.takeDamage = this.takeDamage.bind(this);
 
@@ -197,8 +197,8 @@ class PlayScene extends Phaser.Scene {
 
         // --- Purple Knight ---
         this.purpleKnight = this.physics.add.sprite(map.width / 2, map.height / 4, 'idle', 0);
-        this.purpleKnight.body.setSize(64, 64, true);
-        this.purpleKnight.body.setOffset(32, 48); // x: 32 for centering, y: 48 to move it down
+        this.purpleKnight.body.setSize(72, 72, true);
+        this.purpleKnight.body.setOffset(29, 40);
         this.purpleKnight.setTint(0x9400D3); // A nice purple
         this.purpleKnight.body.pushable = false;
         this.purpleKnight.isBlocking = false;
@@ -212,7 +212,7 @@ class PlayScene extends Phaser.Scene {
         // --- Purple Knight's Physical Body (Green Box) ---
         this.knightCollider = this.physics.add.sprite(this.purpleKnight.x, this.purpleKnight.y, null).setVisible(false);
         this.knightCollider.body.setCircle(28);
-        this.knightCollider.body.setOffset(-12, 8);
+        this.knightCollider.body.setOffset(-12, 2);
         this.knightCollider.body.pushable = false;
         this.knightCollider.body.immovable = true;
 
@@ -276,6 +276,7 @@ class PlayScene extends Phaser.Scene {
             redBoundaries.strokeRect(r.x, r.y, r.w, r.h);
         });
         redBoundaries.strokeRect(this.purpleKnight.body.x, this.purpleKnight.body.y, this.purpleKnight.body.width, this.purpleKnight.body.height);
+        redBoundaries.strokeRect(this.hero.body.x, this.hero.body.y, this.hero.body.width, this.hero.body.height);
 
 
         if (!this._xHookInitialized) {
@@ -590,13 +591,14 @@ class PlayScene extends Phaser.Scene {
                 this.redBoundaries.strokeRect(r.x, r.y, r.w, r.h);
             });
             this.redBoundaries.strokeRect(this.purpleKnight.body.x, this.purpleKnight.body.y, this.purpleKnight.body.width, this.purpleKnight.body.height);
+            this.redBoundaries.strokeRect(this.hero.body.x, this.hero.body.y, this.hero.body.width, this.hero.body.height);
         }
         if (this.blueBoundaries && this.blueBoundaries.visible) {
             this.blueBoundaries.clear();
             this.blueBoundaries.lineStyle(2, 0x0000ff, 0.8);
-            const heroCenterX = this.hero.body.x + this.hero.body.radius;
-            const heroCenterY = this.hero.body.y + this.hero.body.radius;
-            const heroRadius = this.hero.body.radius;
+            const heroCenterX = this.hero.body.x + this.hero.body.width / 2;
+            const heroCenterY = this.hero.body.y + this.hero.body.height / 2;
+            const heroRadius = this.knightCollider.body.radius;
             this.blueBoundaries.strokeCircle(heroCenterX, heroCenterY, heroRadius);
             for (let i = 0; i < 8; i++) {
                 const angle = i * 45;
