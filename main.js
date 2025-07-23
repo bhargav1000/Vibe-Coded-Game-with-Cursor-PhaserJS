@@ -59,6 +59,7 @@ class PlayScene extends Phaser.Scene {
         // This order MUST match the sprite sheet layout and the user's explicit direction mapping.
         // Ensure that this order is unchanged at all times: ['e', 'se', 's', 'sw', 'w', 'nw', 'n', 'ne'];
         const directions = ['e', 'se', 's', 'sw', 'w', 'nw', 'n', 'ne'];
+        this.directionMap = new Map(directions.map((d, i) => [d, i]));
         const framesPerRow = 15;
         directions.forEach((direction, index) => {
             const startFrame = index * framesPerRow;
@@ -168,6 +169,7 @@ class PlayScene extends Phaser.Scene {
 
         // --- Hero with Physics ---
         this.hero = this.physics.add.sprite(map.width / 2, map.height / 2, 'idle', 0);
+        this.hero.name = 'hero';
         this.hero.body.setCircle(28);
         this.hero.body.setOffset(36, 36);
         this.hero.body.pushable = false;
@@ -197,12 +199,14 @@ class PlayScene extends Phaser.Scene {
 
         // --- Purple Knight ---
         this.purpleKnight = this.physics.add.sprite(map.width / 2, map.height / 4, 'idle', 0);
+        this.purpleKnight.name = 'knight';
         this.purpleKnight.body.setSize(72, 72, true);
         this.purpleKnight.body.setOffset(29, 40);
         this.purpleKnight.setTint(0x9400D3); // A nice purple
         this.purpleKnight.body.pushable = false;
         this.purpleKnight.isBlocking = false;
         this.purpleKnight.shieldValue = 15;
+        this.purpleKnight.facing = 's';
         this.purpleKnight.anims.play('idle-s', true); // Face down towards the player
         this.purpleKnight.takeDamage = this.takeDamage.bind(this);
         this.purpleKnight.maxHealth = 50;
@@ -328,6 +332,38 @@ class PlayScene extends Phaser.Scene {
             this.healthBar = this.add.graphics().setScrollFactor(0).setDepth(102);
             this.updateHealthBar(); // Initial draw
         }
+
+        // --- Event Logging & WebSocket Bridge ---
+        this.socket = new WebSocket('ws://localhost:8765');
+        this.eventBuf = [];
+        this.logEvt = (actor, action) => {
+            // Hero's facing direction is on the scene, knight's is on the object itself
+            const directionStr = (actor === this.hero) ? this.facing : actor.facing;
+
+            this.eventBuf.push({
+                t: this.time.now,
+                actor: actor.name,
+                pos: [actor.x, actor.y],
+                dir: this.directionMap.get(directionStr),
+                hp: actor.health / actor.maxHealth,
+                action
+            });
+            if (this.eventBuf.length > 60) {
+                this.eventBuf.shift();
+            }
+        };
+
+        // Flush event buffer every 150ms
+        this.time.addEvent({
+            delay: 150,
+            loop: true,
+            callback: () => {
+                if (this.socket.readyState === WebSocket.OPEN && this.eventBuf.length) {
+                    this.socket.send(JSON.stringify(this.eventBuf));
+                    this.eventBuf.length = 0;
+                }
+            }
+        });
 
         // --- Camera ---
         this.cameras.main.startFollow(this.hero);
@@ -579,6 +615,7 @@ class PlayScene extends Phaser.Scene {
             if (!isKnightInAction) {
                 const angle = Phaser.Math.Angle.Between(knight.x, knight.y, this.hero.x, this.hero.y);
                 const direction = this.getDirectionFromAngle(angle);
+                knight.facing = direction;
 
                 knight.body.setVelocity(0, 0);
                 this.knightCollider.body.setVelocity(0, 0);
