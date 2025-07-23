@@ -168,8 +168,8 @@ class PlayScene extends Phaser.Scene {
 
         // --- Hero with Physics ---
         this.hero = this.physics.add.sprite(map.width / 2, map.height / 2, 'idle', 0);
-        this.hero.body.setSize(72, 72, true);
-        this.hero.body.setOffset(29, 40);
+        this.hero.body.setCircle(28);
+        this.hero.body.setOffset(36, 36);
         this.hero.body.pushable = false;
         this.hero.takeDamage = this.takeDamage.bind(this);
 
@@ -276,7 +276,10 @@ class PlayScene extends Phaser.Scene {
             redBoundaries.strokeRect(r.x, r.y, r.w, r.h);
         });
         redBoundaries.strokeRect(this.purpleKnight.body.x, this.purpleKnight.body.y, this.purpleKnight.body.width, this.purpleKnight.body.height);
-        redBoundaries.strokeRect(this.hero.body.x, this.hero.body.y, this.hero.body.width, this.hero.body.height);
+        
+        const heroDebugBoxX = this.hero.x - (this.hero.width / 2) + 29;
+        const heroDebugBoxY = this.hero.y - (this.hero.height / 2) + 40;
+        redBoundaries.strokeRect(heroDebugBoxX, heroDebugBoxY, 72, 72);
 
 
         if (!this._xHookInitialized) {
@@ -591,14 +594,17 @@ class PlayScene extends Phaser.Scene {
                 this.redBoundaries.strokeRect(r.x, r.y, r.w, r.h);
             });
             this.redBoundaries.strokeRect(this.purpleKnight.body.x, this.purpleKnight.body.y, this.purpleKnight.body.width, this.purpleKnight.body.height);
-            this.redBoundaries.strokeRect(this.hero.body.x, this.hero.body.y, this.hero.body.width, this.hero.body.height);
+            
+            const heroDebugBoxX = this.hero.x - (this.hero.width / 2) + 29;
+            const heroDebugBoxY = this.hero.y - (this.hero.height / 2) + 30;
+            this.redBoundaries.strokeRect(heroDebugBoxX, heroDebugBoxY, 72, 72);
         }
         if (this.blueBoundaries && this.blueBoundaries.visible) {
             this.blueBoundaries.clear();
             this.blueBoundaries.lineStyle(2, 0x0000ff, 0.8);
-            const heroCenterX = this.hero.body.x + this.hero.body.width / 2;
-            const heroCenterY = this.hero.body.y + this.hero.body.height / 2;
-            const heroRadius = this.knightCollider.body.radius;
+            const heroCenterX = this.hero.body.x + this.hero.body.radius;
+            const heroCenterY = this.hero.body.y + this.hero.body.radius;
+            const heroRadius = this.hero.body.radius;
             this.blueBoundaries.strokeCircle(heroCenterX, heroCenterY, heroRadius);
             for (let i = 0; i < 8; i++) {
                 const angle = i * 45;
